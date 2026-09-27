@@ -1,27 +1,35 @@
-/* DC Bill Desk — data layer on Supabase.
+/* DC Bill Desk — data layer on Supabase (single user, no login).
  *
  * Mimics the small Firestore-style API the app used on claude.ai
  * (window.claude.use('db')), so the app code stays unchanged:
  *   db.doc('col/id').set(data) | .update(patch) | .delete()
  *   db.collection('col').onSnapshot(cb, onError)  -> cb({docs:[{id, data()}]})
  *
- * Storage: one table public.docs(col, id, data jsonb). See supabase/schema.sql.
- * Also owns the login screen and the backup / restore (JSON) menu.
+ * Access: every call goes through a desk_* RPC carrying a secret "desk key"
+ * (see supabase/schema.sql). The key arrives once via the private link
+ * (…/#k=<key>), is kept in localStorage, and is never part of this repo.
+ * Also owns the key screen and the backup / restore (JSON) menu.
  */
 (function () {
   'use strict';
   const CFG = window.DC_CONFIG || {};
-  const TABLE = 'docs';
+  const KEY_STORE = 'dbd.deskKey';
   const BACKUP_FORMAT = 'dc-bill-desk-backup';
+  const POLL_MS = 60000;
 
-  let sb = null;
+  let sb = null, key = null;
   const cache = {};      // col -> Map(id -> data)
   const listeners = {};  // col -> Set({cb, err})
-  let channel = null;
-  let subscribedOnce = false;
+  let syncing = false;
 
   const errOf = (e) => ({ code: (e && (e.code || e.status)) || 'error', message: (e && e.message) || String(e) });
   const clone = (x) => JSON.parse(JSON.stringify(x ?? {}));
+
+  async function rpc(name, args) {
+    const { data, error } = await sb.rpc(name, Object.assign({ p_key: key }, args));
+    if (error) throw errOf(error);
+    return data;
+  }
 
   function splitPath(path) {
     const p = String(path).split('/');
@@ -37,37 +45,27 @@
   }
 
   async function fetchCol(col) {
-    const m = new Map(); const step = 1000;
-    for (let from = 0; ; from += step) {
-      const { data, error } = await sb.from(TABLE).select('id,data').eq('col', col).range(from, from + step - 1);
-      if (error) throw errOf(error);
-      for (const r of data) m.set(r.id, r.data || {});
-      if (data.length < step) break;
-    }
+    const rows = await rpc('desk_list', { p_col: col });
+    const m = new Map(); for (const r of rows) m.set(r.id, r.data || {});
+    const before = JSON.stringify([...(cache[col] || new Map())]);
     cache[col] = m;
-    emit(col);
-  }
-
-  function refetchAll() {
-    for (const col of Object.keys(listeners)) fetchCol(col).catch((e) => fail(col, e));
+    if (JSON.stringify([...m]) !== before) emit(col);   // skip re-render when nothing changed
   }
   function fail(col, e) { for (const l of listeners[col] || []) if (l.err) l.err(errOf(e)); }
 
-  function ensureChannel() {
-    if (channel) return;
-    channel = sb.channel('docs-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, (p) => {
-        const row = p.eventType === 'DELETE' ? p.old : p.new;
-        if (!row || !row.col || !listeners[row.col]) return;
-        const m = cache[row.col] || (cache[row.col] = new Map());
-        if (p.eventType === 'DELETE') m.delete(row.id); else m.set(row.id, row.data || {});
-        emit(row.col);
-      })
-      .subscribe((status) => {
-        // reconnected: resync so changes made while offline aren't missed
-        if (status === 'SUBSCRIBED') { if (subscribedOnce) refetchAll(); subscribedOnce = true; }
-      });
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) refetchAll(); });
+  // no realtime (it can't check the desk key): resync when the tab comes back and every minute
+  async function syncAll() {
+    if (syncing || document.hidden) return;
+    syncing = true;
+    try { await Promise.all(Object.keys(listeners).map((c) => fetchCol(c).catch((e) => fail(c, e)))); }
+    finally { syncing = false; }
+  }
+  let started = false;
+  function startSync() {
+    if (started) return; started = true;
+    document.addEventListener('visibilitychange', syncAll);
+    window.addEventListener('focus', syncAll);
+    setInterval(syncAll, POLL_MS);
   }
 
   // local latency compensation, like Firestore: UI updates before the round trip
@@ -81,19 +79,19 @@
         async set(data) {
           const d = clone(data);
           localPut(col, id, d);
-          const { error } = await sb.from(TABLE).upsert({ col, id, data: d });
-          if (error) { await fetchCol(col).catch(() => {}); throw errOf(error); }
+          try { await rpc('desk_set', { p_col: col, p_id: id, p_data: d }); }
+          catch (e) { await fetchCol(col).catch(() => {}); throw e; }
         },
         async update(patch) {
           const p = clone(patch);
           localPut(col, id, Object.assign(clone(cache[col] && cache[col].get(id)), p));
-          const { error } = await sb.rpc('doc_merge', { p_col: col, p_id: id, p_patch: p });
-          if (error) { await fetchCol(col).catch(() => {}); throw errOf(error); }
+          try { await rpc('desk_merge', { p_col: col, p_id: id, p_patch: p }); }
+          catch (e) { await fetchCol(col).catch(() => {}); throw e; }
         },
         async delete() {
           localDel(col, id);
-          const { error } = await sb.from(TABLE).delete().eq('col', col).eq('id', id);
-          if (error) { await fetchCol(col).catch(() => {}); throw errOf(error); }
+          try { await rpc('desk_delete', { p_col: col, p_id: id }); }
+          catch (e) { await fetchCol(col).catch(() => {}); throw e; }
         },
       };
     },
@@ -102,42 +100,62 @@
         onSnapshot(cb, err) {
           const l = { cb, err };
           (listeners[col] || (listeners[col] = new Set())).add(l);
-          ensureChannel();
-          fetchCol(col).catch((e) => err && err(errOf(e)));
+          startSync();
+          fetchCol(col).then(() => emit(col)).catch((e) => err && err(errOf(e)));
           return () => listeners[col].delete(l);
         },
       };
     },
   };
 
-  /* ---------- login ---------- */
-  function loginScreen() {
+  /* ---------- desk key ---------- */
+  const lsGet = () => { try { return localStorage.getItem(KEY_STORE); } catch (e) { return null; } };
+  const lsSet = (v) => { try { v ? localStorage.setItem(KEY_STORE, v) : localStorage.removeItem(KEY_STORE); } catch (e) {} };
+
+  // take #k=<key> from the private link, then strip it from the address bar / history
+  function keyFromHash() {
+    const m = /(?:^#|&)k=([^&]+)/.exec(location.hash || '');
+    if (!m) return null;
+    history.replaceState(null, '', location.pathname + location.search);
+    return decodeURIComponent(m[1]);
+  }
+
+  async function valid(k) {
+    const { data, error } = await sb.rpc('desk_check', { p_key: k });
+    if (error) { if (error.code === '42501') return false; throw errOf(error); }
+    return data === true;
+  }
+
+  function keyScreen(message) {
     return new Promise((resolve) => {
       const el = document.createElement('div');
       el.className = 'auth';
       el.innerHTML = `
-        <form class="auth-card" autocomplete="on">
+        <form class="auth-card" autocomplete="off">
           <h2>DC Bill Desk</h2>
-          <p class="auth-sub">เข้าสู่ระบบเพื่อดูและอัปเดตงาน</p>
-          <label>อีเมล<input type="email" name="email" autocomplete="username" required></label>
-          <label>รหัสผ่าน<input type="password" name="password" autocomplete="current-password" required></label>
-          <button class="btn primary" type="submit">เข้าสู่ระบบ</button>
+          <p class="auth-sub">เครื่องนี้ยังไม่มีคีย์ — เปิดจากลิงก์ส่วนตัว หรือวางลิงก์/คีย์ตรงนี้ (ทำครั้งเดียวต่อเครื่อง)</p>
+          <label>ลิงก์ส่วนตัว หรือคีย์<input name="k" autocomplete="off" spellcheck="false" required></label>
+          <button class="btn primary" type="submit">เปิด</button>
           <p class="auth-msg" role="status"></p>
         </form>`;
       document.body.appendChild(el);
       const f = el.querySelector('form'), msg = el.querySelector('.auth-msg');
-      f.email.focus();
+      if (message) msg.textContent = message;
+      f.k.focus();
       f.addEventListener('submit', async (e) => {
         e.preventDefault();
-        msg.textContent = 'กำลังเข้าสู่ระบบ…';
-        const { data, error } = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.password.value });
-        if (error) { msg.textContent = 'เข้าไม่ได้: ' + (error.message || 'error'); return; }
-        el.remove(); resolve(data.session);
+        let v = f.k.value.trim();
+        const m = /[#&]k=([^&\s]+)/.exec(v); if (m) v = decodeURIComponent(m[1]);
+        msg.textContent = 'กำลังตรวจ…';
+        try {
+          if (!(await valid(v))) { msg.textContent = 'คีย์ไม่ถูกต้อง'; return; }
+        } catch (err) { msg.textContent = 'ต่อฐานข้อมูลไม่ได้: ' + err.message; return; }
+        el.remove(); resolve(v);
       });
     });
   }
 
-  /* ---------- account menu: backup / restore / sign out ---------- */
+  /* ---------- menu: backup / restore / forget key ---------- */
   function flash(t) {
     let n = document.querySelector('.acct-flash');
     if (!n) { n = document.createElement('div'); n.className = 'acct-flash'; n.setAttribute('role', 'status'); document.body.appendChild(n); }
@@ -145,12 +163,7 @@
   }
 
   async function exportAll() {
-    const rows = []; const step = 1000;
-    for (let from = 0; ; from += step) {
-      const { data, error } = await sb.from(TABLE).select('col,id,data').order('col').order('id').range(from, from + step - 1);
-      if (error) throw errOf(error);
-      rows.push(...data); if (data.length < step) break;
-    }
+    const rows = await rpc('desk_dump', {});
     const collections = {};
     for (const r of rows) (collections[r.col] || (collections[r.col] = {}))[r.id] = r.data;
     const out = { format: BACKUP_FORMAT, version: 1, exportedAt: new Date().toISOString(), count: rows.length, collections };
@@ -177,11 +190,8 @@
   }
 
   async function importRows(rows) {
-    for (let i = 0; i < rows.length; i += 200) {
-      const { error } = await sb.from(TABLE).upsert(rows.slice(i, i + 200));
-      if (error) throw errOf(error);
-    }
-    refetchAll();
+    for (let i = 0; i < rows.length; i += 200) await rpc('desk_import', { p_rows: rows.slice(i, i + 200) });
+    await syncAll();
   }
 
   function restoreDialog(file) {
@@ -210,24 +220,22 @@
     });
   }
 
-  function mountAccountMenu(session) {
+  function mountMenu() {
     const host = document.querySelector('header.top'); if (!host) return;
     const d = document.createElement('details');
     d.className = 'acct';
-    d.innerHTML = `<summary class="btn ghost" aria-label="บัญชีและข้อมูล">⋯</summary>
+    d.innerHTML = `<summary class="btn ghost" aria-label="ข้อมูลและการตั้งค่า">⋯</summary>
       <div class="acct-menu" role="menu">
-        <div class="acct-who"></div>
         <button class="btn" data-a="export" role="menuitem">สำรองข้อมูล (JSON)</button>
         <label class="btn" role="menuitem">กู้ข้อมูลจากไฟล์…<input type="file" accept="application/json,.json" hidden></label>
-        <button class="btn" data-a="logout" role="menuitem">ออกจากระบบ</button>
+        <button class="btn" data-a="forget" role="menuitem">ลืมคีย์ในเครื่องนี้</button>
       </div>`;
-    d.querySelector('.acct-who').textContent = (session.user && session.user.email) || '';
     host.appendChild(d);
-    d.addEventListener('click', async (e) => {
+    d.addEventListener('click', (e) => {
       const a = e.target.dataset && e.target.dataset.a; if (!a) return;
       d.open = false;
       if (a === 'export') exportAll().catch((err) => flash('สำรองไม่สำเร็จ: ' + (err.message || err.code)));
-      if (a === 'logout') { await sb.auth.signOut(); location.reload(); }
+      if (a === 'forget') { lsSet(null); location.reload(); }
     });
     d.querySelector('input[type=file]').addEventListener('change', (e) => {
       const f = e.target.files && e.target.files[0]; e.target.value = ''; d.open = false;
@@ -238,18 +246,13 @@
   window.DCStore = {
     async connect() {
       if (!window.supabase || !CFG.supabaseUrl || !CFG.supabaseKey) throw new Error('Supabase config missing');
-      sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } });
-      let { data: { session } } = await sb.auth.getSession();
-      if (!session) session = await loginScreen();
-      // signed in but not on the allowlist: RLS would just show an empty app, so say so
-      const { data: allowed, error } = await sb.rpc('is_app_user');
-      if (error) throw errOf(error);
-      if (!allowed) {
-        await sb.auth.signOut();
-        throw new Error('บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งาน');
-      }
-      sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') location.reload(); });
-      mountAccountMenu(session);
+      sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } });
+      const fromLink = keyFromHash();
+      let k = fromLink || lsGet(), note = '';
+      if (k && !(await valid(k))) { k = null; note = fromLink ? 'ลิงก์นี้ใช้ไม่ได้แล้ว' : 'คีย์ในเครื่องนี้ใช้ไม่ได้แล้ว'; }
+      if (!k) k = await keyScreen(note);
+      key = k; lsSet(k);
+      mountMenu();
       return db;
     },
   };
