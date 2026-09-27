@@ -31,6 +31,8 @@ A single table, `public.docs(col, id, data jsonb)`, with the same shape as the a
 - `ledger/meta`, `ledger/s1..s5`: cost ledger
 - `ref/capex`, `ref/opex`: CAPEX/OPEX codes
 
+The "Import new Excel" button on the cost page reads the file in the browser (SheetJS). It fills merged cells into every cell they cover before reading (Excel keeps the value only in the top-left cell), treats rows under one merged vendor cell as a single group, and lists anything in the file worth checking (a row's Total left blank, a SUM range that misses rows, an annual total that doesn't match 12 months).
+
 `update()` goes through `desk_merge()`, which merges top-level fields (same semantics as Firestore `update`).
 
 ## Access control (single user, no login)

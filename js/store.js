@@ -21,6 +21,7 @@
   const cache = {};      // col -> Map(id -> data)
   const listeners = {};  // col -> Set({cb, err})
   let syncing = false;
+  let lastSync = null;
 
   const errOf = (e) => ({ code: (e && (e.code || e.status)) || 'error', message: (e && e.message) || String(e) });
   const clone = (x) => JSON.parse(JSON.stringify(x ?? {}));
@@ -49,6 +50,7 @@
     const m = new Map(); for (const r of rows) m.set(r.id, r.data || {});
     const before = JSON.stringify([...(cache[col] || new Map())]);
     cache[col] = m;
+    lastSync = new Date();
     if (JSON.stringify([...m]) !== before) emit(col);   // skip re-render when nothing changed
   }
   function fail(col, e) { for (const l of listeners[col] || []) if (l.err) l.err(errOf(e)); }
@@ -226,16 +228,22 @@
     d.className = 'acct';
     d.innerHTML = `<summary class="btn ghost" aria-label="ข้อมูลและการตั้งค่า">⋯</summary>
       <div class="acct-menu" role="menu">
+        <button class="btn" data-a="refresh" role="menuitem">รีเฟรชข้อมูล</button>
+        <div class="acct-sync"></div>
         <button class="btn" data-a="export" role="menuitem">สำรองข้อมูล (JSON)</button>
         <label class="btn" role="menuitem">กู้ข้อมูลจากไฟล์…<input type="file" accept="application/json,.json" hidden></label>
         <button class="btn" data-a="forget" role="menuitem">ลืมคีย์ในเครื่องนี้</button>
       </div>`;
     host.appendChild(d);
+    const syncEl = d.querySelector('.acct-sync');
+    const showSync = () => { syncEl.textContent = lastSync ? 'ซิงก์ล่าสุด ' + lastSync.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' · อัปเดตเองทุก 1 นาที' : ''; };
+    d.addEventListener('toggle', () => { if (d.open) showSync(); });
     d.addEventListener('click', (e) => {
       const a = e.target.dataset && e.target.dataset.a; if (!a) return;
       d.open = false;
       if (a === 'export') exportAll().catch((err) => flash('สำรองไม่สำเร็จ: ' + (err.message || err.code)));
       if (a === 'forget') { lsSet(null); location.reload(); }
+      if (a === 'refresh') { syncing = false; syncAll().then(() => flash('ข้อมูลล่าสุดแล้ว'), (err) => flash('รีเฟรชไม่สำเร็จ: ' + (err.message || err.code))); }
     });
     d.querySelector('input[type=file]').addEventListener('change', (e) => {
       const f = e.target.files && e.target.files[0]; e.target.value = ''; d.open = false;

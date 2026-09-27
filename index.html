@@ -12,19 +12,19 @@
 :root{
   --bg:#F6F6F7;--surface:#FFFFFF;--surface2:#F1F1F2;--ink:#1A1A1C;--ink2:#46474A;--muted:#707174;--line:#E4E4E6;
   --accent:#D7262F;--accent-soft:#FCEBEC;--on-accent:#FFFFFF;--steel:#3F4145;--steel-soft:#ECECEE;
-  --red:#A61B1B;--red-soft:#F9E3E1;--amber:#B26B00;--amber-soft:#FCF1DE;--green:#1B8752;--green-soft:#E5F4EC;--grey-soft:#EEEEF0;
+  --red:#C2410C;--red-soft:#FFEDD5;--amber:#B26B00;--amber-soft:#FCF1DE;--green:#1B8752;--green-soft:#E5F4EC;--grey-soft:#EEEEF0;
   --shadow:0 1px 2px rgba(20,20,22,.05),0 8px 24px rgba(20,20,22,.06);
   --font:"IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   color-scheme:dark;--bg:#0F0F10;--surface:#18181A;--surface2:#1F1F22;--ink:#EDEDEE;--ink2:#C8C8CC;--muted:#939397;--line:#2B2B2F;
   --accent:#FF4F58;--accent-soft:#3A1A1D;--on-accent:#140606;--steel:#D4D4D8;--steel-soft:#2A2A2E;
-  --red:#FF8A7A;--red-soft:#3B1E1A;--amber:#E7B04E;--amber-soft:#35291A;--green:#4CC48A;--green-soft:#17301F;--grey-soft:#242428;
+  --red:#FB923C;--red-soft:#3A2412;--amber:#E7B04E;--amber-soft:#35291A;--green:#4CC48A;--green-soft:#17301F;--grey-soft:#242428;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);}}
 :root[data-theme="dark"]{
   color-scheme:dark;--bg:#0F0F10;--surface:#18181A;--surface2:#1F1F22;--ink:#EDEDEE;--ink2:#C8C8CC;--muted:#939397;--line:#2B2B2F;
   --accent:#FF4F58;--accent-soft:#3A1A1D;--on-accent:#140606;--steel:#D4D4D8;--steel-soft:#2A2A2E;
-  --red:#FF8A7A;--red-soft:#3B1E1A;--amber:#E7B04E;--amber-soft:#35291A;--green:#4CC48A;--green-soft:#17301F;--grey-soft:#242428;
+  --red:#FB923C;--red-soft:#3A2412;--amber:#E7B04E;--amber-soft:#35291A;--green:#4CC48A;--green-soft:#17301F;--grey-soft:#242428;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5;margin:0}
@@ -217,6 +217,13 @@ select.mini{border:1px solid var(--line);background:var(--surface);border-radius
 @media (prefers-reduced-motion:no-preference){.drawer{animation:sl .18s ease-out}@keyframes sl{from{transform:translateX(24px);opacity:.6}}}
 </style>
 <link rel="stylesheet" href="css/auth.css">
+<style>
+.xwarn{margin:-4px 0 12px;font-size:12px;background:var(--amber-soft);color:var(--amber);border-radius:10px;padding:8px 12px}
+.xwarn summary{cursor:pointer;font-weight:600}
+.xwarn div{margin-top:4px}.xwarn .note{color:var(--ink2)}
+.kv dd a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;overflow-wrap:anywhere}
+.kv dd a:hover{color:var(--accent)}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -523,7 +530,6 @@ function renderDrawer(first){
   D.innerHTML=`<div class="dh"><h2>${esc(t.title)}<div class="note">${esc(i.label||'')}${i.t.kind==='bill'?' · งวดส่งบัญชี '+esc(EN_M[+i.period.slice(5)-1]+' '+i.period.slice(0,4)):''}</div></h2><button class="btn ghost" id="dClose" aria-label="ปิด">✕</button></div>
   <div class="db">
     <div><p class="lbl2">สถานะ</p>${stepsHTML(i)}</div>
-    ${poBlock(t)}
     ${cl.length?`<div><p class="lbl2">Checklist</p>${cl.map((c,k)=>`<label class="chk"><input type="checkbox" data-cl="${k}" ${(st.cl||[])[k]?'checked':''}> <span>${esc(c)}</span></label>`).join('')}</div>`:''}
     ${t.kind==='bill'?`<div class="two"><div class="fld"><label for="fPo">เลข PO / IPO</label><input id="fPo" value="${esc(st.poNo||'')}" class="num"></div>
       <div class="fld"><label for="fAmt">ยอด (บาท)</label><input id="fAmt" inputmode="decimal" value="${esc(st.amount??'')}" class="num"></div></div>`:''}
@@ -535,10 +541,11 @@ function renderDrawer(first){
       ${i.rec?`<dt>ควรได้เอกสาร</dt><dd>${fmtD(i.rec)}</dd>`:t.kind==='bill'?`<dt>ได้เอกสาร</dt><dd>${esc(t.receiveText||'ตามบิล / เมื่อส่งของ')}</dd>`:''}
       ${i.due?`<dt>${t.kind==='bill'?'ส่งบัญชีก่อน':'กำหนด'}</dt><dd>${fmtD(i.due)}</dd>`:''}
       ${t.pay?`<dt>ชำระ</dt><dd>${esc(t.pay)}${t.wht?' · WHT '+esc(t.wht):''}</dd>`:''}
-      ${t.contact?`<dt>ติดต่อบัญชี</dt><dd>${esc(t.contact)}</dd>`:''}
-      ${(t.emails||[]).length?`<dt>อีเมล</dt><dd>${t.emails.map(e=>`<div><span class="num">${esc(e)}</span><button class="copy" data-copy="${esc(e)}">copy</button></div>`).join('')}</dd>`:''}
+      ${t.contact?`<dt>ติดต่อบัญชี</dt><dd>${contactHTML(t.contact)}</dd>`:''}
+      ${(t.emails||[]).length?`<dt>อีเมล vendor</dt><dd>${t.emails.map(e=>`<div><a class="num" href="mailto:${esc(e)}">${esc(e)}</a><button class="copy" data-copy="${esc(e)}">copy</button></div>`).join('')}${t.emails.length>1?`<button class="copy" data-copy="${esc(t.emails.join('; '))}">copy ทั้งหมด</button>`:''}</dd>`:''}
       ${t.site?`<dt>Site / Store</dt><dd>${esc(t.site)}</dd>`:''}
     </dl></div>
+    ${poBlock(t)}
     ${(t.items||[]).length?`<div><p class="lbl2">รายการ (${t.items.length})</p>${t.items.map(x=>`<div class="chk"><span class="num" style="min-width:92px;color:var(--muted)">${esc(x.code||'')}</span><span>${esc(x.desc)}</span></div>`).join('')}</div>`:''}
     ${(t.notes||[]).length?`<div><p class="lbl2">หมายเหตุ</p>${t.notes.map(n=>`<div class="note">• ${esc(n)}</div>`).join('')}</div>`:''}
     ${(st.log||[]).length?`<div><p class="lbl2">ประวัติ</p>${st.log.slice().reverse().map(l=>`<div class="log">${esc(new Date(l.at).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}))} → ${esc(stepOf(t,l.s).t)}</div>`).join('')}</div>`:''}
@@ -546,6 +553,8 @@ function renderDrawer(first){
   </div>`;
   if(first) D.querySelector('#dClose').focus();
 }
+function contactHTML(c){const m=/<([^>]+@[^>]+)>/.exec(c); if(!m) return esc(c);
+  return `${esc(c.replace(m[0],'').replace(/[—\s]+$/,''))} <a class="num" href="mailto:${esc(m[1])}">${esc(m[1])}</a><button class="copy" data-copy="${esc(m[1])}">copy</button>`;}
 function stepsHTML(i){
   const ss=steps(i.t); const idx=ss.findIndex(s=>s.k===i.status);
   return `<div class="steps">${ss.map((s,k)=>`<button class="step${s.k===i.status?' cur':''}${k<idx&&s.b!=='skip'&&s.b!=='block'?' past':''}${s.b==='block'?' bad':''}" data-step="${s.k}"><span class="n">${k<idx&&s.b!=='skip'&&s.b!=='block'?'✓':''}</span>${esc(s.t)}</button>`).join('')}</div>`;
@@ -692,7 +701,8 @@ function renderCost(V){
   const seg=`<div class="toolbar"><div class="seg" role="group" aria-label="มุมมอง">${[['monthly','ค่าใช้จ่ายรายเดือน'],['po','รหัสเปิด PO'],['capex','CAPEX 2026']].map(([k,l])=>`<button data-cv="${k}" aria-pressed="${costV===k}">${l}</button>`).join('')}</div><span class="sp"></span>
     <button class="btn" id="impBtn">นำเข้า Excel ใหม่</button><input type="file" id="impFile" accept=".xlsx,.xlsm" hidden></div>`;
   const m=LED.meta;
-  const src=`<div class="src"><span>ที่มา: ${esc(m?.source||'บันทึกค่าใช้จ่าย DC 2026.xlsx')}</span><span>อัปเดต ${m?.updatedAt?esc(new Date(m.updatedAt).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})):'—'}</span>${m?.check?`<span class="${m.check.ok?'ok':''}">${m.check.ok?'✓ ยอดรวมตรงกับแถว Total ในไฟล์':'⚠ ยอดรวมไม่ตรงกับแถว Total'}</span>`:''}</div>`;
+  const src=`<div class="src"><span>ที่มา: ${esc(m?.source||'บันทึกค่าใช้จ่าย DC 2026.xlsx')}</span><span>อัปเดต ${m?.updatedAt?esc(new Date(m.updatedAt).toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})):'—'}</span>${m?.check?`<span class="${m.check.ok?'ok':''}">${m.check.ok?'✓ ยอดรวมรายเดือนตรงกับแถว Total ในไฟล์':'⚠ ยอดรวมไม่ตรงกับแถว Total'}</span>`:''}</div>
+    ${(m?.check?.warn||[]).length?`<details class="xwarn"><summary>⚠ ${m.check.warn.length} จุดควรเช็คในไฟล์ Excel</summary>${m.check.warn.map(w=>`<div>• ${esc(w)}</div>`).join('')}<div class="note">เว็บคำนวณยอดจากรายเดือนเองเสมอ — ตัวเลขในเว็บไม่ผิด แต่ไฟล์ต้นฉบับควรแก้</div></details>`:''}`;
   if(!LED.secs.length&&costV!=='po'){V.innerHTML=seg+'<div class="empty">ยังไม่มีข้อมูลค่าใช้จ่าย — กด "นำเข้า Excel ใหม่" แล้วเลือกไฟล์ บันทึกค่าใช้จ่าย DC 2026.xlsx</div>';document.getElementById('kpis').innerHTML='';return;}
   const tAll=monthTotals(rowsAll), latest=latestMonth(tAll), ytd=tAll.slice(0,latest+1).reduce((a,b)=>a+b,0);
   const nonD=monthTotals(rowsAll.filter(r=>!isDhl(r))).slice(0,latest+1).reduce((a,b)=>a+b,0);
@@ -769,38 +779,72 @@ function renderLed(D,first){
 function loadXLSX(){return new Promise((ok,no)=>{if(window.XLSX) return ok(window.XLSX);const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';sc.onload=()=>ok(window.XLSX);sc.onerror=()=>no(new Error('โหลดตัวอ่าน Excel ไม่ได้'));document.head.appendChild(sc);});}
 const sv=v=>v==null?'':(typeof v==='number'&&Number.isInteger(v)?String(v):String(v).trim());
 const nv=v=>typeof v==='number'?Math.round(v*100)/100:null;
+const fmtN=v=>(Math.round(v*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+// Excel merged cells only keep a value in the top-left cell; copy it into every cell of the range
+// so each row can be read on its own. Returns {r0: topRow} for rows covered by merges in column c.
+function fillMerges(ws){
+  const X=window.XLSX, spans={};
+  for(const m of ws['!merges']||[]){
+    const top=ws[X.utils.encode_cell(m.s)];
+    for(let r=m.s.r;r<=m.e.r;r++) for(let c=m.s.c;c<=m.e.c;c++){
+      if(r===m.s.r&&c===m.s.c) continue;
+      if(top) ws[X.utils.encode_cell({r,c})]=Object.assign({},top); else delete ws[X.utils.encode_cell({r,c})];
+    }
+    for(let c=m.s.c;c<=m.e.c;c++){ (spans[c]||(spans[c]={})); for(let r=m.s.r;r<=m.e.r;r++) spans[c][r]=m.s.r; }
+  }
+  return spans;
+}
+// rows as arrays; A[0] is the first row of the sheet's used range, so shift merge rows by that offset
+function sheetRows(X,wb,name){const ws=wb.Sheets[name]; const abs=fillMerges(ws); const off=ws['!ref']?X.utils.decode_range(ws['!ref']).s.r:0;
+  const spans={}; for(const c in abs){spans[c]={}; for(const r in abs[c]) spans[c][r-off]=abs[c][r]-off;}
+  return {A:X.utils.sheet_to_json(ws,{header:1,raw:true,defval:null,blankrows:true}),spans};}
 function parseBook(X,wb){
   const name=wb.SheetNames.find(n=>/^Expence CFM/i.test(n)); if(!name) throw new Error('ไม่เจอชีต Expence CFM 2026');
-  const A=X.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:true,defval:null});
-  const secs=[]; let cur=null,grp=null,vname='',vno='',loc='',grand=null;
-  const closeGrp=()=>{if(!grp) return; const b=grp.find(r=>r.store||r.cpc||r.acc); if(b) for(const r of grp) for(const k of ['store','cpc','acc','sub']) if(!r[k]&&b[k]){r[k]=b[k];r.inferred=true;}};
+  const {A,spans}=sheetRows(X,wb,name);
+  const vSpan=spans[2]||{}, nSpan=spans[1]||{};            // vendor (C) / No. (B) merges define a vendor group
+  const secs=[]; let cur=null,grp=null,gkey=null,loc='',grand=null,grandTotal=null; const warn=[];
+  const closeGrp=()=>{if(!grp) return; const b=grp.find(r=>r.store||r.cpc||r.acc); if(b) for(const r of grp) for(const k of ['store','cpc','acc','sub']) if(!r[k]&&b[k]){r[k]=b[k];r.inferred=true;}
+    const v=grp.find(r=>r.vendorNo); if(v) for(const r of grp) if(!r.vendorNo){r.vendorNo=v.vendorNo;r.inferred=true;}};
   for(let i=2;i<A.length;i++){
     const R=A[i]||[], g=c=>R[c]??null, months=[...Array(12)].map((_,k)=>nv(g(11+k)));
-    if(sv(g(9))==='Total'){grand=months;continue;}
-    if(!sv(g(3))&&!sv(g(2))){ if(months.some(v=>v)&&cur){closeGrp();grp=null;cur.subtotal=months;cur=null;} continue; }
-    if(!cur){cur={rows:[],loc:''};secs.push(cur);vname='';vno='';loc='';grp=null;}
-    if(sv(g(1))||sv(g(2))){closeGrp();grp=[];vname=sv(g(2))||vname;vno=sv(g(4));}
-    if(!grp) grp=[];
-    if(sv(g(4))) vno=sv(g(4)); if(sv(g(9))) loc=sv(g(9));
-    const r={row:i+1,code:sv(g(0)),vendor:vname,detail:sv(g(3)),vendorNo:vno,store:sv(g(5)),cpc:sv(g(6)),acc:sv(g(7)),sub:sv(g(8)),loc,cat:sv(g(10)),m:months,total:nv(g(23))};
+    if(sv(g(9))==='Total'){grand=months;grandTotal=nv(g(23));continue;}
+    if(!sv(g(3))&&!sv(g(2))){ if(months.some(v=>v)&&cur){closeGrp();grp=null;gkey=null;cur.subtotal=months;cur.subtotalTotal=nv(g(23));cur.subRow=i+1;cur=null;} continue; }
+    if(!cur){cur={rows:[],loc:''};secs.push(cur);loc='';grp=null;gkey=null;}
+    const key=vSpan[i]??nSpan[i]??i;                          // rows sharing one merged vendor cell = one group
+    if((sv(g(1))||sv(g(2)))&&key!==gkey){closeGrp();grp=[];gkey=key;}
+    if(!grp){grp=[];gkey=key;}
+    if(sv(g(9))) loc=sv(g(9));
+    const vendor=sv(g(2))||(grp[0]&&grp[0].vendor)||'';
+    const sum=Math.round(months.reduce((a,v)=>a+(v||0),0)*100)/100, xt=nv(g(23));
+    const r={row:i+1,code:sv(g(0)),vendor,detail:sv(g(3)),vendorNo:sv(g(4)),store:sv(g(5)),cpc:sv(g(6)),acc:sv(g(7)),sub:sv(g(8)),loc,cat:sv(g(10)),m:months,total:xt??(sum||null)};
+    if(xt==null&&sum) {r.totalMissing=true; warn.push(`แถว ${i+1} (${r.detail}) มียอดรายเดือน ${fmtN(sum)} แต่ช่อง Total (คอลัมน์ X) ว่าง`);}
+    else if(xt!=null&&Math.abs(xt-sum)>=1) warn.push(`แถว ${i+1} (${r.detail}) Total ${fmtN(xt)} ≠ ผลรวมรายเดือน ${fmtN(sum)}`);
     grp.push(r); cur.rows.push(r); if(!cur.loc&&loc) cur.loc=loc;
   }
   closeGrp();
   const used={}; secs.forEach((s,i)=>{const n=s.loc||'Other';used[n]=(used[n]||0)+1;s.name=used[n]===1?n:n+' ('+used[n]+')';s.order=i+1;});
+  for(const s of secs) if(s.subtotal) for(let k=0;k<12;k++){const c=s.rows.reduce((b,r)=>b+(r.m[k]||0),0); if(Math.abs(c-(s.subtotal[k]||0))>=1) warn.push(`ส่วน ${s.name} เดือน ${EN_M[k]}: ยอดรวมย่อย (แถว ${s.subRow}) ${fmtN(s.subtotal[k]||0)} ≠ ผลรวมรายการ ${fmtN(c)} — เช็คช่วงสูตร SUM`);}
   const calc=[...Array(12)].map((_,k)=>secs.reduce((a,s)=>a+s.rows.reduce((b,r)=>b+(r.m[k]||0),0),0));
   const ok=!grand||calc.every((v,k)=>Math.abs(v-(grand[k]||0))<1);
+  if(grand&&grandTotal!=null){const ms=grand.reduce((a,v)=>a+(v||0),0); if(Math.abs(ms-grandTotal)>=1) warn.push(`Total ทั้งปีใน Excel ${fmtN(grandTotal)} ≠ ผลรวม 12 เดือน ${fmtN(ms)} (ต่าง ${fmtN(ms-grandTotal)})`);}
   // CAPEX
   let capex=[],opex=[];
   const cn=wb.SheetNames.find(n=>/^CAPEX BL/i.test(n)), bn=wb.SheetNames.find(n=>/^CAPEX BG/i.test(n)), on=wb.SheetNames.find(n=>/^OPEX BG/i.test(n));
-  if(cn){const C=X.utils.sheet_to_json(wb.Sheets[cn],{header:1,raw:true,defval:null});
-    const BG=bn?X.utils.sheet_to_json(wb.Sheets[bn],{header:1,raw:true,defval:null}).slice(1).filter(r=>r&&r[0]!=null):[]; let k=0;
+  if(cn){const C=sheetRows(X,wb,cn).A;
+    const BG=bn?sheetRows(X,wb,bn).A.slice(1).filter(r=>r&&r[0]!=null):[]; let k=0;
     for(let i=5;i<C.length;i++){const R=C[i]||[]; const d=sv(R[11]); if(!d||d==='Total'||!sv(R[3])) continue;
       const it={desc:d,store:sv(R[3]),cpc:sv(R[4]),life:sv(R[12]),unit:sv(R[14]),price:nv(R[15]),budget:[...Array(12)].map((_,j)=>nv(R[16+j])),budgetTotal:nv(R[28]),actual:[...Array(12)].map((_,j)=>nv(R[31+j])),actualTotal:nv(R[43]),balance:nv(R[44])};
       const b=BG[k++]; if(b){it.project=sv(b[3]);it.task=sv(b[4]);it.bgDesc=sv(b[5]);it.bgAmount=nv(typeof b[6]==='string'?Number(b[6]):b[6]);it.amountMatch=it.bgAmount===it.budgetTotal;}
       capex.push(it);}}
-  if(on){const O=X.utils.sheet_to_json(wb.Sheets[on],{header:1,raw:true,defval:null});
-    for(let i=3;i<O.length;i++){const R=O[i]||[]; if(R[2]) opex.push({area:sv(R[0]),wh:sv(R[1]),project:sv(R[2]),task:sv(R[3]),desc:sv(R[4])});}}
-  return {secs,grand,check:{ok},capex,opex};
+  if(on){const O=sheetRows(X,wb,on).A; const h=O.findIndex(R=>R&&R.some(v=>sv(v)==='Project'));
+    for(let i=h+1;i<O.length;i++){const R=O[i]||[]; if(R[2]) opex.push({area:sv(R[0]),wh:sv(R[1]),project:sv(R[2]),task:sv(R[3]),desc:sv(R[4])});}}
+  return {secs,grand,check:{ok,warn},capex,opex};
+}
+// which months change with this import (old → new), so a monthly update is easy to eyeball
+function monthDiffHTML(o,n){
+  const ch=n.map((v,k)=>({k,o:o[k]||0,n:v||0})).filter(x=>Math.abs(x.n-x.o)>=1);
+  if(!ch.length) return `<p class="note">ยอดรายเดือนไม่เปลี่ยนจากข้อมูลเดิม</p>`;
+  return `<div><p class="lbl2">เดือนที่ยอดเปลี่ยน</p><dl class="kv">${ch.map(x=>`<dt>${EN_M[x.k]}</dt><dd class="num">${nf(x.o)} → <b>${nf(x.n)}</b> <span class="note">(${x.n>=x.o?'+':''}${nf(x.n-x.o)})</span></dd>`).join('')}</dl></div>`;
 }
 async function handleImport(file){
   const D=document.getElementById('drawer'); openId='imp'; document.getElementById('scrim').hidden=false; D.hidden=false;
@@ -811,6 +855,8 @@ async function handleImport(file){
     D.querySelector('.db').innerHTML=`<dl class="kv"><dt>ส่วน (DC)</dt><dd>${P.secs.map(s=>esc(s.name)+' ('+s.rows.length+')').join(', ')}</dd>
       <dt>บรรทัด</dt><dd class="num">${P.secs.reduce((a,s)=>a+s.rows.length,0)}</dd><dt>เช็คยอดรวม</dt><dd>${P.check.ok?'✓ ตรงกับแถว Total':'⚠ ไม่ตรงกับแถว Total — ลองเช็คไฟล์'}</dd>
       <dt>บรรทัดใหม่/รหัสเปลี่ยน</dt><dd class="num">${changed}</dd><dt>CAPEX</dt><dd class="num">${P.capex.length} รายการ</dd><dt>OPEX project</dt><dd class="num">${P.opex.length}</dd></dl>
+      ${monthDiffHTML(monthTotals(allRows()),monthTotals(P.secs.flatMap(s=>s.rows)))}
+      ${P.check.warn.length?`<div><p class="lbl2">สิ่งที่ควรเช็คในไฟล์ Excel (${P.check.warn.length})</p>${P.check.warn.map(w=>`<div class="warnline">• ${esc(w)}</div>`).join('')}<p class="note">ไม่กระทบการนำเข้า — เว็บคำนวณยอดจากรายเดือนเอง แต่ควรแก้ในไฟล์ต้นฉบับ</p></div>`:''}
       <p class="note">ข้อมูลเดิมในหน้าค่าใช้จ่ายจะถูกแทนที่ทั้งหมด (สถานะงานและรหัส PO ของงานวางบิลไม่ถูกแตะ)</p>
       <div><button class="btn primary" id="impSave">บันทึกข้อมูลนี้</button></div><div class="saved" aria-live="polite"></div>`;
   }catch(e){D.querySelector('.db').innerHTML=`<div class="warnline">อ่านไฟล์ไม่ได้: ${esc(e.message||e)}</div>`;}
