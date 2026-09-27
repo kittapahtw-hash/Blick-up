@@ -1,0 +1,13 @@
+# Company data must never be committed (this repo is public)
+*.xlsx
+*.xls
+*.xlsm
+*.docx
+*.pdf
+*backup*.json
+db-snapshot/
+data/
+.env*
+.vercel
+.netlify
+node_modules/

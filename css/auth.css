@@ -1,0 +1,18 @@
+/* login screen, account menu, restore dialog — uses the app's color tokens */
+.auth{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:16px;background:var(--bg)}
+.auth-card{width:min(380px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:22px;display:flex;flex-direction:column;gap:12px}
+.auth-card h2{margin:0;font-size:20px}
+.auth-sub{margin:-6px 0 4px;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.auth-card label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.auth-card input{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 10px;font-size:15px;color:var(--ink)}
+.auth-card .btn.primary{padding:9px 12px}
+.auth-msg{margin:0;font-size:13px;color:var(--ink2);min-height:1.5em}
+.auth-row{display:flex;gap:8px;justify-content:flex-end}
+
+.acct{position:relative;align-self:center}
+.acct summary{list-style:none;font-size:18px;line-height:1;padding:6px 10px}
+.acct summary::-webkit-details-marker{display:none}
+.acct-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:8px;display:flex;flex-direction:column;gap:6px}
+.acct-menu .btn{text-align:left;width:100%;cursor:pointer}
+.acct-who{font-size:12px;color:var(--muted);padding:2px 4px 4px;overflow-wrap:anywhere}
+.acct-flash{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:50;background:var(--ink);color:var(--bg);border-radius:8px;padding:8px 14px;font-size:13px;max-width:calc(100% - 32px)}
